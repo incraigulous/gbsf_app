@@ -1,0 +1,12 @@
+{
+  "require": {
+    "silex/silex": "~1.2",
+    "adamlc/wufoo-php-api-wrapper": "dev-master",
+    "mandrill/mandrill": "1.0.*"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "app/"
+    }
+  }
+}
