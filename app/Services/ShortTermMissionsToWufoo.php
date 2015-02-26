@@ -26,6 +26,7 @@ class ShortTermMissionsToWufoo {
 
     public function processPayload($data) {
         $this->data = $data;
+        $this->forward();
         $this->parsePayload($this->data);
         if (!count($this->wufooPayload)) {
             throw new Exception('No email data extracted.');
@@ -34,13 +35,12 @@ class ShortTermMissionsToWufoo {
         if (!$result->Success) {
             throw new Exception(json_encode($result->fieldErrors));
         }
-        $this->forward();
     }
 
-    public function notify($message) {
+    public function notify($text) {
         $mandrill = MandrillFactory::build();
         $message = array(
-            'text' => $message,
+            'text' => $text,
             'subject' => 'GBSF Short Terms Missions Submission Error',
             'from_email' => 'donotreply@gbsf.org',
             'from_name' => 'GBSF ERROR',
@@ -52,12 +52,10 @@ class ShortTermMissionsToWufoo {
             )
         );
         $mandrill->messages->send($message);
-
-        $this->forward(true);
     }
 
-    private function forward($withError = false) {
-        if (!count($this->wufooPayload)) {
+    private function forward() {
+        if (!$this->data->get('body_html')) {
             return;
         }
         $mandrill = MandrillFactory::build();
@@ -65,19 +63,12 @@ class ShortTermMissionsToWufoo {
         $message['subject'] = $this->data->get('raw__Subject');
         $message['from_name'] = $this->data->get('from_name');
         $message['from_email'] = $this->data->get('sender');
-        $toEmails = array(
+        $message['to'] = array(
             array(
                 'email' => self::FORWARDING_EMAIL,
                 'type' => 'to'
             )
         );
-        if ($withError) {
-            $toEmails[] = array(
-                'email' => self::ERROR_EMAIL,
-                'type' => 'to'
-            );
-        }
-        $message['to'] = $toEmails;
         $mandrill->messages->send($message);
     }
 
@@ -89,6 +80,7 @@ class ShortTermMissionsToWufoo {
             }
         }
         $this->wufooPayload[] = new WufooSubmitField('Field9', $this->wufooPayloadMessage);
+        $this->wufooPayload[] = new WufooSubmitField('Field11', 'Short Term Missions');
     }
 
     private function checkAndStoreDelimiter($part) {

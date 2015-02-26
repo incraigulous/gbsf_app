@@ -699,3 +699,4 @@ vendor/symfony/routing/Symfony/Component/Routing/phpunit.xml.dist
 .idea/scopes/scope_settings.xml
 .idea/vcs.xml
 .idea/workspace.xml
+.idea/misc.xml
