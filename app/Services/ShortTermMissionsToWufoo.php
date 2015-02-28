@@ -5,12 +5,19 @@ use Silex\Application;
 use Adamlc\Wufoo\ValueObject\WufooSubmitField;
 use Exception;
 
+/**
+ * Parse a Zapier email submission from Short Term Mission and Create an entry in Wufoo.
+ *
+ * Class ShortTermMissionsToWufoo
+ * @package App\Services
+ */
 class ShortTermMissionsToWufoo {
+
     private $data;
     private $delimiter;
     private $delimiterData = [
         'message' => 'M E S S A G E',
-        'contactInfo' => 'C O N T A C T &nbsp;&nbsp;I N F O',
+        'contactInfo' => 'C O N T A C T   I N F O',
         'details' => 'D E T A I L S'
     ];
     private $app;
@@ -20,11 +27,19 @@ class ShortTermMissionsToWufoo {
     const ERROR_EMAIL = 'craigwann1@gmail.com';
     const WUFOO_FORM_SLUG = 'r1tl6zgg0gzfyj1';
 
-    public function __construct(Application $app) {
+    public function __construct(Application $app)
+    {
         $this->app = $app;
     }
 
-    public function processPayload($data) {
+    /**
+     * Process the zapier post request.
+     *
+     * @param $data
+     * @throws Exception
+     */
+    public function processPayload($data)
+    {
         $this->data = $data;
         $this->forward();
         $this->parsePayload($this->data);
@@ -37,7 +52,13 @@ class ShortTermMissionsToWufoo {
         }
     }
 
-    public function notify($text) {
+    /**
+     * Called on error to notify via email.
+     *
+     * @param $text
+     */
+    public function notify($text)
+    {
         $mandrill = MandrillFactory::build();
         $message = array(
             'text' => $text,
@@ -54,12 +75,16 @@ class ShortTermMissionsToWufoo {
         $mandrill->messages->send($message);
     }
 
-    private function forward() {
-        if (!$this->data->get('body_html')) {
+    /**
+     * Forward the original email on to Gary through Mandrill.
+     */
+    private function forward()
+    {
+        if (!$this->data->get('body_plain')) {
             return;
         }
         $mandrill = MandrillFactory::build();
-        $message['html'] = $this->data->get('body_html');
+        $message['text'] = $this->data->get('body_plain');
         $message['subject'] = $this->data->get('raw__Subject');
         $message['from_name'] = $this->data->get('from_name');
         $message['from_email'] = $this->data->get('sender');
@@ -72,8 +97,14 @@ class ShortTermMissionsToWufoo {
         $mandrill->messages->send($message);
     }
 
-    private function parsePayload($data) {
-        $parts = explode('<br class="">', $data->get('body_html'));
+    /**
+     * Split the payload into chunks and decide what to do with them.
+     *
+     * @param $data
+     */
+    private function parsePayload($data)
+    {
+        $parts = explode(PHP_EOL, $data->get('body_plain'));
         foreach($parts as $part) {
             if(!$this->checkAndStoreDelimiter($part)) {
                 $this->parsePart($part);
@@ -83,16 +114,30 @@ class ShortTermMissionsToWufoo {
         $this->wufooPayload[] = new WufooSubmitField('Field11', 'Short Term Missions');
     }
 
-    private function checkAndStoreDelimiter($part) {
+    /**
+     * Check to see if the current part is a delimiter. If it is, store it so we know which section we're in.
+     *
+     * @param $part
+     * @return bool
+     */
+    private function checkAndStoreDelimiter($part)
+    {
         foreach($this->delimiterData as $label => $string) {
-            if ($part == $string) {
+            if (strpos($part, $string) !== false) {
                 $this->delimiter = $label;
                 return true;
             }
         }
+        return false;
     }
 
-    private function parsePart($part) {
+    /**
+     * Parse the part based on which section we're in.
+     *
+     * @param $part
+     */
+    private function parsePart($part)
+    {
         switch ($this->delimiter) {
             case 'message':
                 $this->handleMessagePart($part);
@@ -103,24 +148,33 @@ class ShortTermMissionsToWufoo {
         }
     }
 
-    private function handleMessagePart($part) {
+    /**
+     * Message parts get added to wufooPayloadMessage to be added to the text field.
+     *
+     * @param $part
+     */
+    private function handleMessagePart($part)
+    {
         $this->wufooPayloadMessage .= $part;
     }
 
-    private function handleContactPart($part) {
+    /**
+     * Contact parts get handled appropriately by field.
+     *
+     * @param $part
+     */
+    private function handleContactPart($part)
+    {
         $parts = explode(':', $part);
         if ($parts[0] == 'Name') {
-            $nameParts = explode(' ', $parts[1]);
-            $this->wufooPayload[] = new WufooSubmitField('Field1', trim(str_replace('&nbsp;','',$nameParts[1])));
-
-            if (!empty($nameParts[2])) {
-                $this->wufooPayload[] = new WufooSubmitField('Field2', trim($nameParts[2]));
-            }
+            $firstName = substr($parts[1], 0, strrpos($parts[1], ' '));
+            $lastName = substr($parts[1], strrpos($parts[1], ' ') + 1);
+            $this->wufooPayload[] = new WufooSubmitField('Field1', trim($firstName));
+            $this->wufooPayload[] = new WufooSubmitField('Field2', trim($lastName));
             return;
         }
         if ($parts[0] == 'Email') {
-            preg_match('~>(.*?)<~', $parts[2], $email);
-            $this->wufooPayload[] = new WufooSubmitField('Field3', trim($email[1]));
+            $this->wufooPayload[] = new WufooSubmitField('Field3', trim($parts[1]));
             return;
         }
         if ($parts[0] == 'Phone') {
