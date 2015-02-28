@@ -124,6 +124,12 @@ class ShortTermMissionsToWufoo {
     {
         foreach($this->delimiterData as $label => $string) {
             if (strpos($part, $string) !== false) {
+
+                //Include details string in payload
+                if (strpos($part, $this->delimiterData['details']) !== false) {
+                    $this->wufooPayloadMessage .= $part;
+                }
+
                 $this->delimiter = $label;
                 return true;
             }
@@ -140,11 +146,12 @@ class ShortTermMissionsToWufoo {
     {
         switch ($this->delimiter) {
             case 'message':
+            case 'details':
                 $this->handleMessagePart($part);
-        break;
+                break;
             case 'contactInfo':
-                $this->handlecontactPart($part);
-        break;
+                $this->handleContactPart($part);
+                break;
         }
     }
 
