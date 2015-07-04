@@ -24,7 +24,8 @@ class ShortTermMissionsToWufoo {
     private $wufooPayload;
     private $wufooPayloadMessage;
     const FORWARDING_EMAIL = 'gshotton@gbsf.org';
-    const ERROR_EMAIL = 'craigwann1@gmail.com';
+    //const FORWARDING_EMAIL = 'me@craigwann.com';
+    const ERROR_EMAIL = 'me@craigwann.com';
     const WUFOO_FORM_SLUG = 'r1tl6zgg0gzfyj1';
 
     public function __construct(Application $app)
@@ -43,9 +44,6 @@ class ShortTermMissionsToWufoo {
         $this->data = $data;
         $this->forward();
         $this->parsePayload($this->data);
-        if (!count($this->wufooPayload)) {
-            throw new Exception('No email data extracted.');
-        }
         $result = WufooFactory::build()->entryPost(self::WUFOO_FORM_SLUG, $this->wufooPayload);
         if (!$result->Success) {
             throw new Exception(json_encode($result->fieldErrors));
@@ -101,6 +99,7 @@ class ShortTermMissionsToWufoo {
      * Split the payload into chunks and decide what to do with them.
      *
      * @param $data
+     * @throws Exception
      */
     private function parsePayload($data)
     {
@@ -109,6 +108,9 @@ class ShortTermMissionsToWufoo {
             if(!$this->checkAndStoreDelimiter($part)) {
                 $this->parsePart($part);
             }
+        }
+        if (!count($this->wufooPayload)) {
+            throw new Exception('No email data extracted.');
         }
         $this->wufooPayload[] = new WufooSubmitField('Field9', $this->wufooPayloadMessage);
         $this->wufooPayload[] = new WufooSubmitField('Field11', 'Short Term Missions');
